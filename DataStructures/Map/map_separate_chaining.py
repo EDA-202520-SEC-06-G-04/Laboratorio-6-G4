@@ -1,153 +1,168 @@
 from random import randint
 from DataStructures.List import array_list as al
+from DataStructures.List import single_linked_list as sl
 from DataStructures.Map import map_entry as me
 from DataStructures.Map import map_functions as mf
 
-def new_map(num_elements, load_factor, prime):
-     
-    lista_elementos = al.new_list()
+
+def new_map(num_elements, load_factor, prime=109345121):
     
-    table = {"size": al.size(),
-            "elements": al.add_last(lista_elementos)
-            }
+    capacity = mf.next_prime(num_elements//load_factor)
+    scale = randint(1, prime-1)
+    shift = randint(0, prime-1)
     
-    prime_to_use = 109345121
+    table = al.new_list()
     
-    if prime != None:
-        prime_to_use = prime
+    for i in range(capacity):
+        lista = sl.new_list()
+        al.add_last(table, lista)
+        
     
-    my_map = {"prime": prime_to_use,
-              "capacity": num_elements/load_factor,
-              "scale" : randint(1,prime-1),
-              "shift": randint(0,prime-1),
-              "table": table, 
-              "current_factor": 0,
-              "limit_factor": load_factor,
-              "size": 0     
-              }
+    my_map = {
+        'prime' : prime,
+        'capacity': capacity, 
+        'scale' : scale, 
+        'shift': shift, 
+        'table' : table,
+        'size' : 0,
+        'limit_factor' : load_factor,
+        'current_factor' : 0,
+    }
+    
     return my_map
 
-def rehash(my_map):
-    new_load_factor = my_map["limit_factor"]
-    new_capacity = my_map["capacity"] 
-    new_num_elements = new_load_factor * new_capacity
+def put(my_map, key, value):
     
-    new_prime = mf.next_prime(new_capacity)
+    hash = mf.hash_value(my_map, key)
+    lista = al.get_element(my_map['table'], hash)
+    entrada = me.new_map_entry(key, value)
     
-    table = my_map["table"]
-    rehash = new_map(new_num_elements,new_load_factor,new_prime)
-    new_map["table"] = table
-                
-    return rehash     
-   
-def hash_value (my_map, key):    
-    m =  my_map["table"]["size"]
-    hash_key = hash(key)
+    pos = sl.is_present(lista, key, default_compare)
     
-    p = mf.next_prime(m)
-                
-    a = randint(1,(p-1))
-    b = randint(0,(p-1))
-    
-    MAD = (abs(a * hash_key + b) % p) % m
-    return MAD
-        
-def find_slot(my_map,key,hash_value):
-   first_avail = None
-   found = False
-   ocupied = False
-   while not found:
-      if is_available(my_map["table"], hash_value):
-            if first_avail is None:
-               first_avail = hash_value
-            entry = al.get_element(my_map["table"], hash_value)
-            if me.get_key(entry) is None:
-               found = True
-      elif default_compare(key, al.get_element(my_map["table"], hash_value)) == 0:
-            first_avail = hash_value
-            found = True
-            ocupied = True
-      hash_value = (hash_value + 1) % my_map["capacity"]
-   return ocupied, first_avail
-    
-def put(my_map, key, value):  
-    key_hash = hash_value(key)
-    slot = find_slot(my_map,key,key_hash)
-    
-    if slot != None:
-        my_map["table"]["elements"][slot] = value
-        my_map["current_factor"] += 0.09090909090909091
-           
+    if pos >= 0:
+        sl.change_info(lista, pos, entrada)
     else:
-        al.insert_element(my_map["table"]["elements"],{key:value},(my_map["table"]["size"])+1)
-        my_map["current_factor"] = 0.18181818181818182
-            
-    if my_map["current_factor"] > my_map["limit_factor"]:
-        my_map = rehash(my_map) 
+        sl.add_last(lista, entrada)
+        my_map['size'] += 1
+        my_map['current_factor'] = my_map['size'] / my_map['capacity']
+
+        if my_map['current_factor'] > my_map['limit_factor']:
+            rehash(my_map)
         
     return my_map
 
-def is_available(my_map, pos):
-    entry = al.get_element(my_map["table"], pos)
-    if me.get_key(entry) is None or me.get_key(entry) == "__EMPTY__":
-        return True
-    return False
-
-
-def default_compare(key, entry):
-    if key == me.get_key(entry):
-        return 0
-    elif key > me.get_key(entry):
-        return 1
-    return -1
-     
-def contains(my_map,key):
-    contains = False
-    for pos in my_map:
-        if my_map[key] == my_map[pos]:
-            contains = True
-    return contains
+def contains(my_map, key):
+    lista = get(my_map, key)
+    if lista is not None:
+        return True 
+    else:
+        return False
     
-def get(my_entry):
-    return me.get_key(my_entry)
+
+def get(my_map, key):
+    pos = mf.hash_value(my_map, key)
+    lista = al.get_element(my_map['table'], pos)
+    
+    temp = lista["first"]
+    
+    while temp is not None:
+        data = temp["info"]
+        if me.get_key(data) == key:
+            return me.get_value(data)
+        temp = temp["next"]
+    
+    return None
     
 def remove(my_map, key):
+    pos = mf.hash_value(my_map, key)
+    lista = al.get_element(my_map['table'],pos)
     
-    for pos in my_map:
-        if my_map[pos] == my_map[key]:
-            my_map["elements"][key] = "__EMPTY__"
-            my_map["elements"]["value"][pos] = "__EMPTY__"
-            
-    return my_map  
+    current_node = lista['first']
+    previous_node = None
+    removed = False
+    while not removed and current_node is not None:
+        if current_node['info']['key'] == key and not removed:
+            if previous_node is None:
+                lista['first'] = current_node['next']
+            else:
+                previous_node['next'] = current_node['next']
+            if lista['last'] == current_node:
+                lista['last'] = previous_node
+            lista['size'] -= 1
+            my_map['size'] -= 1
+            my_map['current_factor'] = my_map['size'] / my_map['capacity']
+            removed = True
+        else:
+            previous_node = current_node
+        current_node = current_node['next']
+    return my_map
+
 
 def size(my_map):
-    size = my_map["table"]["size"]  
-    return size
-  
+    return my_map['size']
+
+
 def is_empty(my_map):
-    size = size(my_map)
-    if size != 0:
-        respuesta = False
-    else:
-        respuesta = True
-    return respuesta
-        
+    return my_map['size'] == 0
+
 def key_set(my_map):
-    resultado = {}
-    lista = al.new_list()
-    for pos in my_map["table"]["elements"]:
-        al.add_last(my_map["table"]["elements"][pos])
-    
-    if len(lista) == 0:
-            resultado = {"elementos": lista, size: 0}
-    else:
-            resultado = {"elementos": lista, size: len(lista)}
-            
-    return resultado
-   
+    keys = {
+        'elements': [],
+        'size': 0
+    }
+    table = my_map['table']  
+    for lista in table['elements']:
+        current_node = lista['first']
+        while current_node is not None:
+            key = current_node['info']['key']
+            keys['elements'].append(key)
+            keys['size'] += 1 
+            current_node = current_node['next']
+    return keys
+
 def value_set(my_map):
-    lista = al.new_list()
-    for pos in my_map["table"]:
-        al.add_last(my_map["table"][pos])
-        
-    return lista
+    values = {
+        'elements': [],
+        'size': 0
+    }
+    table = my_map['table']
+    for lista in table['elements']:
+        current_node = lista['first']
+        while current_node is not None:
+            value = current_node['info']['value']
+            values['elements'].append(value)
+            values['size'] += 1
+            current_node = current_node['next']
+
+    return values
+     
+
+def rehash(my_map):
+    new_capacity = mf.next_prime(my_map['capacity'] * 2)
+    new_map_obj = new_map(my_map['size'], my_map['limit_factor'])
+    old_table = my_map['table']
+    for lista in old_table['elements']:
+        current_node = lista['first']
+        while current_node is not None:
+            key = current_node['info']['key']
+            value = current_node['info']['value']
+            put(new_map_obj, key, value)
+            current_node = current_node['next']
+    my_map['capacity'] = new_map_obj['capacity']
+    my_map['table'] = new_map_obj['table']
+    my_map['size'] = new_map_obj['size']
+    my_map['current_factor'] = my_map['size'] / my_map['capacity']
+    my_map['prime'] = new_map_obj['prime']
+    my_map['scale'] = new_map_obj['scale']
+    my_map['shift'] = new_map_obj['shift']
+
+    return my_map
+    
+
+def default_compare(key, element):
+    if (key == me.get_key(element)):
+        return 0
+    else:
+        return -1
+    
+    
